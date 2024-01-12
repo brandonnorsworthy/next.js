@@ -26,9 +26,9 @@ use turbo_tasks::{TryJoinIterExt, Value, Vc};
 use turbopack_binding::{
     turbo::tasks_fs::FileSystemPath,
     turbopack::{
-        build::BuildChunkingContext,
+        build::{BuildChunkingContext, EntryChunkGroupResult},
         core::{
-            chunk::{ChunkingContext, EvaluatableAssets},
+            chunk::{availability_info::AvailabilityInfo, ChunkingContext, EvaluatableAssets},
             compile_time_info::CompileTimeInfo,
             file_source::FileSource,
             ident::AssetIdent,
@@ -300,14 +300,19 @@ pub async fn compute_app_entries_chunks(
             .entry(Vc::upcast(app_entry.rsc_entry))
             .await?;
 
-        let rsc_chunk = rsc_chunking_context.entry_chunk_group(
-            node_root.join(format!(
-                "server/app/{original_name}.js",
-                original_name = app_entry.original_name
-            )),
-            app_entry.rsc_entry,
-            app_entries.rsc_runtime_entries,
-        );
+        let EntryChunkGroupResult {
+            asset: rsc_chunk, ..
+        } = *rsc_chunking_context
+            .entry_chunk_group(
+                node_root.join(format!(
+                    "server/app/{original_name}.js",
+                    original_name = app_entry.original_name
+                )),
+                app_entry.rsc_entry,
+                app_entries.rsc_runtime_entries,
+                Value::new(AvailabilityInfo::Root),
+            )
+            .await?;
         all_chunks.push(rsc_chunk);
 
         let mut app_entry_client_chunks = vec![];

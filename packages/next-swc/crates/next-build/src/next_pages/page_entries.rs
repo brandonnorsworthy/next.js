@@ -25,9 +25,9 @@ use turbo_tasks::Vc;
 use turbopack_binding::{
     turbo::{tasks::Value, tasks_fs::FileSystemPath},
     turbopack::{
-        build::BuildChunkingContext,
+        build::{BuildChunkingContext, EntryChunkGroupResult},
         core::{
-            chunk::{ChunkingContext, EvaluatableAssets},
+            chunk::{availability_info::AvailabilityInfo, ChunkingContextExt, EvaluatableAssets},
             compile_time_info::CompileTimeInfo,
             context::AssetContext,
             file_source::FileSource,
@@ -402,11 +402,17 @@ pub async fn compute_page_entries_chunks(
         let pathname = page_entry.pathname.await?;
         let asset_path: String = get_asset_path_from_pathname(&pathname, ".js");
 
-        let ssr_entry_chunk = ssr_chunking_context.entry_chunk_group(
-            node_root.join(format!("server/pages/{asset_path}")),
-            Vc::upcast(page_entry.ssr_module),
-            page_entries.ssr_runtime_entries,
-        );
+        let EntryChunkGroupResult {
+            asset: ssr_entry_chunk,
+            ..
+        } = *ssr_chunking_context
+            .entry_chunk_group(
+                node_root.join(format!("server/pages/{asset_path}")),
+                Vc::upcast(page_entry.ssr_module),
+                page_entries.ssr_runtime_entries,
+                Value::new(AvailabilityInfo::Root),
+            )
+            .await?;
         all_chunks.push(ssr_entry_chunk);
 
         let chunk_path = ssr_entry_chunk.ident().path().await?;
@@ -416,11 +422,12 @@ pub async fn compute_page_entries_chunks(
                 .insert(pathname.clone_value(), asset_path.to_string());
         }
 
-        let client_chunks = client_chunking_context.evaluated_chunk_group(
+        let client_chunks = client_chunking_context.evaluated_chunk_group_assets(
             page_entry.client_module.ident(),
             page_entries
                 .client_runtime_entries
                 .with_entry(Vc::upcast(page_entry.client_module)),
+            Value::new(AvailabilityInfo::Root),
         );
 
         let build_manifest_pages_entry = build_manifest
