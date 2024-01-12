@@ -127,7 +127,6 @@ import { recursiveReadDir } from '../lib/recursive-readdir'
 import {
   lockfilePatchPromise,
   teardownTraceSubscriber,
-  teardownCrashReporter,
   loadBindings,
   teardownHeapProfiler,
   createDefineEnv,
@@ -3232,6 +3231,5 @@ export default async function build(
     await flushAllTraces()
     teardownTraceSubscriber()
     teardownHeapProfiler()
-    teardownCrashReporter()
   }
 }
